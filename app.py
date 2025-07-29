@@ -9,7 +9,7 @@ import requests
 app = Flask(__name__)
 
 # Link model dari Dropbox (HARUS model TANPA LAMBDA LAYER, input (48,48,3))
-DROPBOX_URL = "https://www.dropbox.com/scl/fi/XXXXX/model_no_lambda.h5?rlkey=XXXX&dl=1"
+DROPBOX_URL = "https://www.dropbox.com/scl/fi/d5uh5lj4rnliizq3lnr3h/model.h5?rlkey=xstzuu10lglb6ym8d5kcyvp38&st=pbwlefg7&dl=1"
 MODEL_PATH = "model_no_lambda.h5"
 
 def download_model():
