@@ -39,7 +39,6 @@ def download_and_load_model():
         print("✅ Model loaded successfully from file:", output)
     except Exception as e:
         print("❌ ERROR loading model:", str(e))
-        # Baca error detail
         with open(output, "rb") as f:
             head = f.read(512)
             print("First 512 bytes of file:", head[:100])
@@ -95,6 +94,11 @@ def health_check():
 if __name__ == '__main__':
     try:
         download_and_load_model()
+        # --- SAVE ULANG MODEL DI SINI ---
+        # Hanya perlu sekali saja, hasilnya model_tf218.h5
+        model.save('model_tf218.h5', save_format='h5')
+        print('✅ Model sudah disave ulang ke model_tf218.h5')
+        # ---------------------------------
     except Exception as e:
         print("Model failed to load, exiting server startup...")
         exit(1)
