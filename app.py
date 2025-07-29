@@ -1,23 +1,23 @@
 import io
+import os
 import gdown
 import numpy as np
 from PIL import Image
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from tensorflow.keras.models import load_model
-from tensorflow.keras.layers import Lambda
 import tensorflow as tf
+from tensorflow.keras.models import load_model
 
 app = Flask(__name__)
 CORS(app)
 
-# Google Drive model link (direct)
-MODEL_URL = 'https://drive.google.com/file/d/1zG0YYVqZK7BrvHtTdZ-ht4GQD_JERPva'
+# Link Google Drive langsung (uc?id=...)
+MODEL_URL = 'https://drive.google.com/uc?id=1zG0YYVqZK7BrvHtTdZ-ht4GQD_JERPva'
 CLASS_NAMES = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
 
 model = None
 
-# Lambda: grayscale to RGB
+# Lambda: grayscale to RGB (untuk layer Lambda di model)
 @tf.keras.utils.register_keras_serializable(package='Custom')
 def grayscale_to_rgb(x):
     return tf.repeat(x, 3, axis=-1)
@@ -25,19 +25,18 @@ def grayscale_to_rgb(x):
 def download_and_load_model():
     global model
     print("📥 Downloading model from Google Drive (in-memory)...")
-    # Download as bytes (no file saved to disk)
-    response = gdown.download(MODEL_URL, quiet=False, fuzzy=True)
-    
-    # Read from downloaded file path directly into memory
+    output = 'model.h5'
+    # Download file .h5
+    gdown.download(MODEL_URL, output, quiet=False)
+    # Debug ukuran file (penting! pastikan bukan file HTML/error)
+    print("[INFO] Model file size:", os.path.getsize(output), "bytes")
+    # Load model dengan custom Lambda
     model = load_model(
-        response,
-        custom_objects={
-            'grayscale_to_rgb': grayscale_to_rgb,
-            'Lambda': Lambda(grayscale_to_rgb, output_shape=(None, 48, 48, 3))
-        },
+        output,
+        custom_objects={'grayscale_to_rgb': grayscale_to_rgb},
         compile=False
     )
-    print("✅ Model loaded successfully from memory!")
+    print("✅ Model loaded successfully from file:", output)
 
 def preprocess_image(image_file, target_size=(48, 48)):
     image = Image.open(image_file).convert('L')  # Grayscale
@@ -88,6 +87,6 @@ def health_check():
     })
 
 if __name__ == '__main__':
-    download_and_load_model()  # Load from GDrive every time on start
+    download_and_load_model()  # Load model pada saat start
     from waitress import serve
     serve(app, host='0.0.0.0', port=5000)
