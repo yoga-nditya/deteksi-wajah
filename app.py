@@ -1,102 +1,48 @@
-import os
-import requests
-import numpy as np
-from PIL import Image
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-import tensorflow as tf
+import numpy as np
 from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
+import tensorflow as tf
 
 app = Flask(__name__)
-CORS(app)
 
-DROPBOX_URL = "https://www.dropbox.com/scl/fi/d5uh5lj4rnliizq3lnr3h/model.h5?rlkey=xstzuu10lglb6ym8d5kcyvp38&st=hhycuwd0&dl=1"
-CLASS_NAMES = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
-
-model = None
-
-@tf.keras.utils.register_keras_serializable(package='Custom')
+# Definisikan ulang fungsi lambda sesuai model
 def grayscale_to_rgb(x):
-    return tf.repeat(x, 3, axis=-1)
+    return tf.image.grayscale_to_rgb(x)
 
-def download_and_load_model():
-    global model
-    output = 'model.h5'
-    if not os.path.exists(output):  # biar gak download ulang tiap restart
-        print("📥 Downloading model from Dropbox ...")
-        r = requests.get(DROPBOX_URL, stream=True)
-        r.raise_for_status()
-        with open(output, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-        print("[INFO] Model file size:", os.path.getsize(output), "bytes")
-    try:
-        model = load_model(
-            output,
-            custom_objects={'grayscale_to_rgb': grayscale_to_rgb},
-            compile=False
-        )
-        print("✅ Model loaded successfully from file:", output)
-    except Exception as e:
-        print("❌ ERROR loading model:", str(e))
-        # Baca error detail
-        with open(output, "rb") as f:
-            head = f.read(512)
-            print("First 512 bytes of file:", head[:100])
-        raise e
+# Load model .h5 Keras dengan custom_objects
+try:
+    model = load_model('model.h5', custom_objects={'grayscale_to_rgb': grayscale_to_rgb})
+    print("✅ Model loaded successfully!")
+except Exception as e:
+    print("❌ ERROR loading model:", str(e))
+    exit(1)
 
-def preprocess_image(image_file, target_size=(48, 48)):
-    image = Image.open(image_file).convert('L')
-    image = image.resize(target_size)
-    image = np.asarray(image).astype('float32') / 255.0
-    image = np.expand_dims(image, axis=-1)
-    image = np.expand_dims(image, axis=0)
-    return image
+@app.route('/')
+def home():
+    return "API OK! Model loaded!"
 
+# Contoh endpoint prediksi gambar
 @app.route('/predict', methods=['POST'])
 def predict():
-    global model
-    if model is None:
-        return jsonify({'error': 'Model not loaded yet'}), 503
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
 
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image uploaded'}), 400
+    # Preprocess sesuai kebutuhan model, contoh (ubah sesuai model kamu):
+    img = image.load_img(file, color_mode='grayscale', target_size=(224, 224))
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)         # shape (1, 224, 224, 1)
+    x = x / 255.0                         # Normalisasi (jika diperlukan)
 
-    image_file = request.files['image']
-    try:
-        image = preprocess_image(image_file)
-        predictions = model.predict(image)[0]
-        predicted_index = int(np.argmax(predictions))
-        confidence = float(predictions[predicted_index]) * 100
+    # Prediksi
+    preds = model.predict(x)
+    label = np.argmax(preds[0])
 
-        top3_indices = np.argsort(predictions)[-3:][::-1]
-        top3 = [{
-            'label': CLASS_NAMES[i],
-            'confidence': round(float(predictions[i]) * 100, 2)
-        } for i in top3_indices]
-
-        return jsonify({
-            'predicted_class': CLASS_NAMES[predicted_index],
-            'confidence': round(confidence, 2),
-            'top_predictions': top3
-        })
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    return jsonify({
-        'status': 'healthy',
-        'model_loaded': model is not None,
-        'message': 'Emotion detection API is running'
-    })
+    return jsonify({'result': int(label), 'confidence': float(np.max(preds[0]))})
 
 if __name__ == '__main__':
-    try:
-        download_and_load_model()
-    except Exception as e:
-        print("Model failed to load, exiting server startup...")
-        exit(1)
-    from waitress import serve
-    serve(app, host='0.0.0.0', port=5000)
+    app.run(debug=True)
