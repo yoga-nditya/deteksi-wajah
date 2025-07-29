@@ -3,16 +3,36 @@ import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 import tensorflow as tf
+import os
+import requests
 
 app = Flask(__name__)
 
-# Definisikan ulang fungsi lambda sesuai model
+# Link model dari Dropbox, WAJIB pakai dl=1!
+DROPBOX_URL = "https://www.dropbox.com/scl/fi/d5uh5lj4rnliizq3lnr3h/model.h5?rlkey=xstzuu10lglb6ym8d5kcyvp38&st=pbwlefg7&dl=1"
+MODEL_PATH = "model.h5"
+
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        print("📥 Downloading model from Dropbox ...")
+        resp = requests.get(DROPBOX_URL, stream=True)
+        resp.raise_for_status()
+        with open(MODEL_PATH, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print(f"✅ Model downloaded! Size: {os.path.getsize(MODEL_PATH)} bytes")
+        # Magic bytes check
+        with open(MODEL_PATH, "rb") as f:
+            print("Magic bytes:", f.read(8))
+
+# Lambda function sesuai dengan model Keras Lambda layer
 def grayscale_to_rgb(x):
     return tf.image.grayscale_to_rgb(x)
 
-# Load model .h5 Keras dengan custom_objects
+# Download dan load model
 try:
-    model = load_model('model.h5', custom_objects={'grayscale_to_rgb': grayscale_to_rgb})
+    download_model()
+    model = load_model(MODEL_PATH, custom_objects={'grayscale_to_rgb': grayscale_to_rgb})
     print("✅ Model loaded successfully!")
 except Exception as e:
     print("❌ ERROR loading model:", str(e))
@@ -22,7 +42,7 @@ except Exception as e:
 def home():
     return "API OK! Model loaded!"
 
-# Contoh endpoint prediksi gambar
+# Endpoint prediksi gambar
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'file' not in request.files:
@@ -32,17 +52,16 @@ def predict():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
-    # Preprocess sesuai kebutuhan model, contoh (ubah sesuai model kamu):
-    img = image.load_img(file, color_mode='grayscale', target_size=(224, 224))
+    # Preprocess sesuai kebutuhan model
+    img = image.load_img(file, color_mode='grayscale', target_size=(48, 48))  # Ganti ukuran sesuai model!
     x = image.img_to_array(img)
-    x = np.expand_dims(x, axis=0)         # shape (1, 224, 224, 1)
+    x = np.expand_dims(x, axis=0)         # shape (1, 48, 48, 1)
     x = x / 255.0                         # Normalisasi (jika diperlukan)
 
-    # Prediksi
     preds = model.predict(x)
-    label = np.argmax(preds[0])
+    label = int(np.argmax(preds[0]))
 
-    return jsonify({'result': int(label), 'confidence': float(np.max(preds[0]))})
+    return jsonify({'result': label, 'confidence': float(np.max(preds[0]))})
 
 if __name__ == '__main__':
     app.run(debug=True)
