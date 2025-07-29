@@ -3,24 +3,23 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Lambda, Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization, GlobalAveragePooling2D
+from tensorflow.keras.layers import Input, Lambda, Conv2D, MaxPooling2D, Dense, Dropout, BatchNormalization, GlobalAveragePooling2D
 import os
 import requests
 from io import BytesIO
-
 
 app = Flask(__name__)
 
 DROPBOX_URL = "https://www.dropbox.com/scl/fi/d5uh5lj4rnliizq3lnr3h/model.h5?rlkey=xstzuu10lglb6ym8d5kcyvp38&st=pbwlefg7&dl=1"
 MODEL_WEIGHTS = "model.h5"
 
-# Kelas emosi sesuai pipeline
+# --- URUTAN LABEL HARUS SESUAI TRAINING ---
 CLASS_NAMES = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
 
 def grayscale_to_rgb(x):
     return tf.image.grayscale_to_rgb(x)
 
-# Definisikan model sesuai pipeline
+# Definisikan arsitektur model sesuai pipeline
 inputs = Input(shape=(48, 48, 1), name='grayscale_input')
 x = Lambda(grayscale_to_rgb, name='grayscale_to_rgb')(inputs)
 
@@ -78,20 +77,30 @@ def predict():
         return jsonify({'error': 'No selected file'}), 400
 
     try:
+        # Read image and preprocess
         img = image.load_img(BytesIO(file.read()), color_mode='grayscale', target_size=(48, 48))
         x = image.img_to_array(img)
         x = np.expand_dims(x, axis=0)
         x = x / 255.0
-        preds = model.predict(x)[0]
+        preds = model.predict(x)[0]  # (7,)
         pred_idx = int(np.argmax(preds))
         pred_label = CLASS_NAMES[pred_idx]
-        confidence = float(np.max(preds))
-        probs = {cls: float(prob) for cls, prob in zip(CLASS_NAMES, preds)}
+        confidence = round(float(np.max(preds)) * 100, 1)
+
+        # Top 3 predictions
+        top3_idx = np.argsort(preds)[::-1][:3]
+        top_predictions = [
+            {
+                "label": CLASS_NAMES[idx],
+                "confidence": round(float(preds[idx]) * 100, 1)
+            }
+            for idx in top3_idx
+        ]
+
         return jsonify({
-            'label': pred_label,
-            'index': pred_idx,
+            'predicted_emotion': pred_label,
             'confidence': confidence,
-            'all_probs': probs
+            'top_predictions': top_predictions
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
