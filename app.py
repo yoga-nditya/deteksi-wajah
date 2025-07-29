@@ -12,7 +12,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Google Drive model link (direct)
-MODEL_URL = 'https://drive.google.com/file/d/1zG0YYVqZK7BrvHtTdZ-ht4GQD_JERPva/view?usp=sharing'
+MODEL_URL = 'https://drive.google.com/uc?id=1zG0YYVqZK7BrvHtTdZ-ht4GQD_JERPva'
 CLASS_NAMES = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
 
 model = None
