@@ -10,7 +10,7 @@ from tensorflow.keras.models import load_model
 app = Flask(__name__)
 CORS(app)
 
-DROPBOX_URL = "https://www.dropbox.com/scl/fi/i9vckqfq5fz3twoxhdr3z/dowload.h5?rlkey=8dtnvaxx2330ouuuykxffzv8d&dl=1"
+DROPBOX_URL = "https://www.dropbox.com/scl/fi/l3d9nprrb4un4km2r13l6/best_vgg16_balanced_strategy6_1-2.h5?rlkey=qd9jrm3hh6p7j0dyvqocichx7&st=kub2k6cm&dl=1"
 CLASS_NAMES = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
 
 model = None
