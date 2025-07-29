@@ -10,7 +10,7 @@ from tensorflow.keras.models import load_model
 app = Flask(__name__)
 CORS(app)
 
-DROPBOX_URL = "https://www.dropbox.com/scl/fi/l3d9nprrb4un4km2r13l6/best_vgg16_balanced_strategy6_1-2.h5?rlkey=qd9jrm3hh6p7j0dyvqocichx7&st=kub2k6cm&dl=1"
+DROPBOX_URL = "https://www.dropbox.com/scl/fi/d5uh5lj4rnliizq3lnr3h/model.h5?rlkey=xstzuu10lglb6ym8d5kcyvp38&st=hhycuwd0&dl=1"
 CLASS_NAMES = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
 
 model = None
@@ -39,6 +39,7 @@ def download_and_load_model():
         print("✅ Model loaded successfully from file:", output)
     except Exception as e:
         print("❌ ERROR loading model:", str(e))
+        # Baca error detail
         with open(output, "rb") as f:
             head = f.read(512)
             print("First 512 bytes of file:", head[:100])
@@ -94,11 +95,6 @@ def health_check():
 if __name__ == '__main__':
     try:
         download_and_load_model()
-        # --- SAVE ULANG MODEL DI SINI ---
-        # Hanya perlu sekali saja, hasilnya model_tf218.h5
-        model.save('model_tf218.h5', save_format='h5')
-        print('✅ Model sudah disave ulang ke model_tf218.h5')
-        # ---------------------------------
     except Exception as e:
         print("Model failed to load, exiting server startup...")
         exit(1)

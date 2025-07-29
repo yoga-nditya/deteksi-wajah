@@ -1,7 +1,7 @@
 import h5py
 import json
 
-model_path = 'best_vgg16_balanced_strategy6_1 (2).h5'
+model_path = 'model.h5'
 
 with h5py.File(model_path, 'r') as f:
     print("[INFO] Layer yang ditemukan di model:")
