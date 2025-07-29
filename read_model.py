@@ -1,31 +1,41 @@
-import h5py
-import json
+import tensorflow as tf
+import requests
 
-model_path = 'model.h5'
+# Download model dari Dropbox
+DROPBOX_URL = "https://www.dropbox.com/scl/fi/l3d9nprrb4un4km2r13l6/best_vgg16_balanced_strategy6_1-2.h5?rlkey=qd9jrm3hh6p7j0dyvqocichx7&st=tqa9ligf&dl=1"
+MODEL_LAMA = "best_vgg16_balanced_strategy6_1-2.h5"
+MODEL_BARU = "model_no_lambda.h5"
 
-with h5py.File(model_path, 'r') as f:
-    print("[INFO] Layer yang ditemukan di model:")
-    for layer in f['model_weights']:
-        print("-", layer)
+# Download model H5 dari Dropbox (jika belum ada)
+if not tf.io.gfile.exists(MODEL_LAMA):
+    print("📥 Downloading model from Dropbox ...")
+    r = requests.get(DROPBOX_URL, stream=True)
+    with open(MODEL_LAMA, "wb") as f:
+        for chunk in r.iter_content(chunk_size=8192):
+            if chunk: f.write(chunk)
+    print(f"✅ Model downloaded: {MODEL_LAMA}")
 
-    print("\n[INFO] Semua key di root:")
-    for key in f.keys():
-        print("-", key)
+# Fungsi Lambda dari model aslinya (untuk load)
+def grayscale_to_rgb(x):
+    return tf.image.grayscale_to_rgb(x)
 
-    if 'model_config' in f.attrs:
-        raw_config = f.attrs['model_config']
-        
-        # FIX: decode hanya jika bytes
-        if isinstance(raw_config, bytes):
-            raw_config = raw_config.decode('utf-8')
-        
-        parsed = json.loads(raw_config)
-        print("\n[INFO] Tipe model:", parsed.get('class_name'))
+# Load model ASLI dengan Lambda
+model_lama = tf.keras.models.load_model(
+    MODEL_LAMA, custom_objects={"grayscale_to_rgb": grayscale_to_rgb}
+)
+print("✅ Model asli (dengan Lambda) berhasil diload.")
 
-        print("\n[INFO] Layer Detail (nama dan tipe):")
-        for i, layer in enumerate(parsed['config']['layers']):
-            print(f"{i+1}. {layer['name']} ({layer['class_name']})")
-            if layer['class_name'] == 'Lambda':
-                print("   ⚠️  Ini Lambda layer. Detail:")
-                print("   config:", layer['config'].get('name', '(tidak ada nama)'))
-                print("   function:", layer['config'].get('function', '[function hidden]'))
+# Buat model BARU tanpa Lambda Layer
+from tensorflow.keras import Input, Model
+
+# INPUT BARU: (48,48,3)
+inputs = Input((48, 48, 3), name="input_rgb")
+x = inputs
+# SKIP: Input(0), Lambda(1). Mulai dari layer index 2.
+for layer in model_lama.layers[2:]:
+    x = layer(x)
+model_baru = Model(inputs, x)
+
+# Save model baru tanpa Lambda
+model_baru.save(MODEL_BARU)
+print(f"✅ Model tanpa Lambda berhasil disimpan: {MODEL_BARU}")

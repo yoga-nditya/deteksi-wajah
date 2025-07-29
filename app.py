@@ -8,9 +8,9 @@ import requests
 
 app = Flask(__name__)
 
-# Link model dari Dropbox (HARUS model TANPA LAMBDA LAYER, input (48,48,3))
+# Link model dari Dropbox, WAJIB pakai dl=1!
 DROPBOX_URL = "https://www.dropbox.com/scl/fi/d5uh5lj4rnliizq3lnr3h/model.h5?rlkey=xstzuu10lglb6ym8d5kcyvp38&st=pbwlefg7&dl=1"
-MODEL_PATH = "model_no_lambda.h5"
+MODEL_PATH = "model.h5"
 
 def download_model():
     if not os.path.exists(MODEL_PATH):
@@ -25,10 +25,14 @@ def download_model():
         with open(MODEL_PATH, "rb") as f:
             print("Magic bytes:", f.read(8))
 
-# Download dan load model (TANPA Lambda Layer!)
+# Lambda function sesuai dengan model Keras Lambda layer
+def grayscale_to_rgb(x):
+    return tf.image.grayscale_to_rgb(x)
+
+# Download dan load model
 try:
     download_model()
-    model = load_model(MODEL_PATH)
+    model = load_model(MODEL_PATH, custom_objects={'grayscale_to_rgb': grayscale_to_rgb})
     print("✅ Model loaded successfully!")
 except Exception as e:
     print("❌ ERROR loading model:", str(e))
@@ -48,18 +52,16 @@ def predict():
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
-    # Preprocess gambar: grayscale→RGB (48,48,3)
-    img = image.load_img(file, color_mode='grayscale', target_size=(48, 48))
+    # Preprocess sesuai kebutuhan model
+    img = image.load_img(file, color_mode='grayscale', target_size=(48, 48))  # Ganti ukuran sesuai model!
     x = image.img_to_array(img)
-    x = tf.image.grayscale_to_rgb(x)    # Convert ke RGB, hasil (48,48,3)
-    x = np.expand_dims(x, axis=0)       # shape (1, 48, 48, 3)
-    x = x / 255.0                       # Normalisasi
+    x = np.expand_dims(x, axis=0)         # shape (1, 48, 48, 1)
+    x = x / 255.0                         # Normalisasi (jika diperlukan)
 
     preds = model.predict(x)
     label = int(np.argmax(preds[0]))
-    confidence = float(np.max(preds[0]))
 
-    return jsonify({'result': label, 'confidence': confidence})
+    return jsonify({'result': label, 'confidence': float(np.max(preds[0]))})
 
 if __name__ == '__main__':
     app.run(debug=True)
