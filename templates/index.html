@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Detection App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #1e40af;
+            --accent: #3b82f6;
+            --light: #f8fafc;
+            --dark: #1e293b;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --glass: rgba(255, 255, 255, 0.1);
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+            padding: 1rem;
+            color: var(--light);
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(37, 99, 235, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            animation: slideUp 0.6s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            position: relative;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            font-weight: 400;
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+        }
+        
+        .input-section, .output-section {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .input-section:hover, .output-section:hover {
+            transform: translateY(-2px);
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: white;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 4px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            outline: none;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 6px;
+        }
+        
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        #video {
+            width: 100%;
+            height: 300px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            display: none;
+        }
+        
+        #imagePreview, #cameraImagePreview {
+            max-width: 100%;
+            max-height: 300px;
+            display: block;
+            margin: 0 auto 1rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: #64748b;
+        }
+        
+        .btn-secondary:hover {
+            box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+        }
+        
+        .btn-danger:hover {
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        
+        .btn-success {
+            background: var(--success);
+        }
+        
+        .btn-success:hover {
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-warning {
+            background: var(--warning);
+        }
+        
+        .btn-warning:hover {
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .file-upload-label {
+            display: block;
+            padding: 2rem;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .file-upload-label:hover {
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .camera-controls {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .result-container {
+            margin-top: 1rem;
+        }
+        
+        .emotion-result {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-align: center;
+            margin: 1rem 0;
+        }
+        
+        .confidence {
+            font-size: 1.1rem;
+            text-align: center;
+            margin-bottom: 1rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+        }
+        
+        .confidence-meter {
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+        
+        .confidence-level {
+            height: 100%;
+            background: linear-gradient(90deg, var(--danger), var(--warning), var(--success));
+            border-radius: 6px;
+            transition: width 1s ease;
+        }
+        
+        .other-emotions {
+            margin-top: 1.5rem;
+        }
+        
+        .other-emotions h3 {
+            color: white;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            text-align: center;
+        }
+        
+        .emotion-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .emotion-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        
+        .emotion-label {
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .emotion-percent {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.02);
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--accent);
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .camera-state {
+            text-align: center;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            padding: 0.5rem;
+            border-radius: 6px;
+        }
+        
+        .camera-state.active {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .camera-state.inactive {
+            background: rgba(100, 116, 139, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .capture-preview {
+            text-align: center;
+        }
+
+        .analyze-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Deteksi Wajah</h1>
+        </header>
+        
+        <div class="content">
+            <div class="input-section">
+                <h2 class="section-title">Input</h2>
+                
+                <div class="tabs">
+                    <button class="tab active" onclick="openTab(event, 'uploadTab')">Upload Image</button>
+                    <button class="tab" onclick="openTab(event, 'cameraTab')">Camera</button>
+                </div>
+                
+                <div id="uploadTab" class="tab-content active">
+                    <label for="fileInput" class="file-upload-label">
+                        <p style="font-size: 1rem; margin-bottom: 0.5rem;">Click to upload an image</p>
+                        <p><small>Supported: JPG, PNG</small></p>
+                    </label>
+                    <input type="file" id="fileInput" accept="image/*">
+                    
+                    <div id="uploadPreview" class="hidden">
+                        <img id="imagePreview" src="#" alt="Preview">
+                        <div style="text-align: center;">
+                            <button class="btn btn-success" onclick="predictEmotion()">Analyze Emotion</button>
+                            <button class="btn btn-secondary" onclick="clearUpload()">Clear</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="cameraTab" class="tab-content">
+                    <div class="camera-state inactive" id="cameraState">Camera is off</div>
+                    
+                    <!-- Camera capture view -->
+                    <div id="cameraView">
+                        <video id="video" autoplay playsinline></video>
+                        <canvas id="canvas"></canvas>
+                        
+                        <div class="camera-controls">
+                            <button class="btn btn-success" id="captureBtn">Capture Photo</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Captured image preview -->
+                    <div id="cameraPreview" class="hidden capture-preview">
+                        <img id="cameraImagePreview" src="#" alt="Captured Image">
+                        <div class="analyze-buttons">
+                            <button class="btn btn-success" onclick="predictCameraEmotion()" id="analyzeBtn">Analyze Emotion</button>
+                            <button class="btn btn-secondary" onclick="retakePhoto()" id="retakeBtn">Retake</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="output-section">
+                <h2 class="section-title">Results</h2>
+                
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Analyzing emotions...</p>
+                </div>
+                
+                <div id="resultContainer" class="result-container hidden">
+                    <div class="emotion-result" id="emotionResult"></div>
+                    <div class="confidence" id="confidenceText"></div>
+                    
+                    <div class="confidence-meter">
+                        <div class="confidence-level" id="confidenceLevel"></div>
+                    </div>
+                    
+                    <div class="other-emotions">
+                        <h3>Other detected emotions:</h3>
+                        <div id="otherEmotions"></div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 1.5rem;">
+                        <button class="btn btn-warning" onclick="resetResults()">New Analysis</button>
+                    </div>
+                </div>
+                
+                <div id="noResults" class="no-results">
+                    <p>No results yet. Upload an image or use camera to detect emotions.</p>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Emotion Detection App 2025</p>
+        </footer>
+    </div>
+
+    <script>
+        // Tab functionality
+        function openTab(evt, tabName) {
+            const tabContents = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove("active");
+            }
+            
+            const tabs = document.getElementsByClassName("tab");
+            for (let i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove("active");
+            }
+            
+            document.getElementById(tabName).classList.add("active");
+            evt.currentTarget.classList.add("active");
+            
+            // Initialize camera when switching to camera tab
+            if (tabName === 'cameraTab') {
+                initializeCamera();
+            } else {
+                stopCamera();
+            }
+        }
+        
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const uploadPreview = document.getElementById('uploadPreview');
+        
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    imagePreview.src = event.target.result;
+                    uploadPreview.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        function clearUpload() {
+            fileInput.value = '';
+            imagePreview.src = '#';
+            uploadPreview.classList.add('hidden');
+        }
+        
+        // Camera functionality
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const cameraImagePreview = document.getElementById('cameraImagePreview');
+        const cameraPreview = document.getElementById('cameraPreview');
+        const cameraView = document.getElementById('cameraView');
+        const captureBtn = document.getElementById('captureBtn');
+        const cameraState = document.getElementById('cameraState');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const retakeBtn = document.getElementById('retakeBtn');
+        
+        let stream = null;
+        let analysisInProgress = false;
+        
+        function initializeCamera() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    },
+                    audio: false 
+                })
+                .then(function(mediaStream) {
+                    stream = mediaStream;
+                    video.srcObject = stream;
+                    video.play();
+                    
+                    cameraState.textContent = 'Camera ready - Click capture to take photo';
+                    cameraState.className = 'camera-state active';
+                    
+                    // Show camera view
+                    cameraView.style.display = 'block';
+                    cameraPreview.classList.add('hidden');
+                })
+                .catch(function(error) {
+                    console.error("Error accessing camera:", error);
+                    cameraState.textContent = 'Camera access denied or not available';
+                    cameraState.className = 'camera-state inactive';
+                });
+              } else {
+                  cameraState.textContent = 'Camera not supported by browser';
+                  cameraState.className = 'camera-state inactive';
+              }
+          }
+          
+          // Capture photo
+          captureBtn.addEventListener('click', function () {
+              if (!stream) {
+                  alert("Camera is not active.");
+                  return;
+              }
+
+              const videoWidth = video.videoWidth;
+              const videoHeight = video.videoHeight;
+              canvas.width = videoWidth;
+              canvas.height = videoHeight;
+
+              canvas.getContext('2d').drawImage(video, 0, 0, videoWidth, videoHeight);
+              cameraImagePreview.src = canvas.toDataURL('image/jpeg');
+              
+              // Switch to preview mode
+              cameraView.style.display = 'none';
+              cameraPreview.classList.remove('hidden');
+              cameraState.textContent = 'Photo captured - Ready for analysis';
+              cameraState.className = 'camera-state active';
+          });
+          
+          function stopCamera() {
+              if (stream) {
+                  stream.getTracks().forEach(track => track.stop());
+                  stream = null;
+                  video.srcObject = null;
+                  
+                  cameraState.textContent = 'Camera is off';
+                  cameraState.className = 'camera-state inactive';
+                  
+                  // Reset views
+                  cameraView.style.display = 'block';
+                  cameraPreview.classList.add('hidden');
+              }
+          }
+          
+          // Retake photo
+          function retakePhoto() {
+              if (analysisInProgress) return;
+              
+              cameraPreview.classList.add('hidden');
+              cameraView.style.display = 'block';
+              cameraState.textContent = 'Camera ready - Click capture to take photo';
+              cameraState.className = 'camera-state active';
+          }
+          
+          // Reset after analysis
+          function resetResults() {
+              document.getElementById('resultContainer').classList.add('hidden');
+              document.getElementById('noResults').classList.remove('hidden');
+              analysisInProgress = false;
+              
+              // Enable buttons
+              analyzeBtn.disabled = false;
+              retakeBtn.disabled = false;
+              
+              // Re-enable camera capture
+              const activeTab = document.querySelector('.tab.active').textContent;
+              if (activeTab === 'Camera') {
+                  cameraState.textContent = 'Camera ready - Click capture to take photo';
+                  cameraState.className = 'camera-state active';
+              }
+          }
+          
+          // Emotion prediction for uploaded image
+          function predictEmotion() {
+              const file = fileInput.files[0];
+              if (!file) {
+                  alert('Please select an image first');
+                  return;
+              }
+              analyzeImage(file);
+          }
+          
+          // Emotion prediction for camera image
+          function predictCameraEmotion() {
+              if (!cameraImagePreview.src || cameraImagePreview.src === '#') {
+                  alert('Please capture an image first');
+                  return;
+              }
+              
+              analysisInProgress = true;
+              analyzeBtn.disabled = true;
+              retakeBtn.disabled = true;
+              
+              canvas.toBlob(function(blob) {
+                  analyzeImage(blob);
+              }, 'image/jpeg', 0.95);
+          }
+          
+          function analyzeImage(imageData) {
+      const formData = new FormData();
+      formData.append('image', imageData, 'image.jpg');
+
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('resultContainer').classList.add('hidden');
+      document.getElementById('noResults').classList.add('hidden');
+
+      // Ganti URL dengan endpoint Flask Anda jika berbeda
+      fetch('http://localhost:5000/predict', {
+          method: 'POST',
+          body: formData
+      })
+      .then(async response => {
+          if (!response.ok) {
+              const text = await response.text();
+              throw new Error('Server error: ' + text);
+          }
+          return response.json();
+      })
+      .then(data => {
+          document.getElementById('loading').classList.add('hidden');
+          if (data.error) {
+              alert('Error: ' + data.error);
+              return;
+          }
+          displayResults(data);
+      })
+      .catch(error => {
+          document.getElementById('loading').classList.add('hidden');
+          console.error('Error:', error);
+          alert('Analysis failed. Please try again.');
+      });
+  }
+        
+        function displayResults(data) {
+            const resultContainer = document.getElementById('resultContainer');
+            const emotionResult = document.getElementById('emotionResult');
+            const confidenceText = document.getElementById('confidenceText');
+            const confidenceLevel = document.getElementById('confidenceLevel');
+            const otherEmotions = document.getElementById('otherEmotions');
+            
+            // Display main emotion
+            const emotion = data.predicted_emotion.charAt(0).toUpperCase() + data.predicted_emotion.slice(1);
+            emotionResult.textContent = emotion;
+            confidenceText.textContent = `Confidence: ${data.confidence.toFixed(1)}%`;
+            confidenceLevel.style.width = `${data.confidence}%`;
+            
+            // Clear and populate other emotions
+            otherEmotions.innerHTML = '';
+            data.top_predictions.forEach(item => {
+                if (item.label !== data.predicted_emotion) {
+                    const emotionItem = document.createElement('div');
+                    emotionItem.className = 'emotion-item';
+                    emotionItem.innerHTML = `
+                        <span class="emotion-label">${item.label.charAt(0).toUpperCase() + item.label.slice(1)}</span>
+                        <span class="emotion-percent">${item.confidence.toFixed(1)}%</span>
+                    `;
+                    otherEmotions.appendChild(emotionItem);
+                }
+            });
+            
+            resultContainer.classList.remove('hidden');
+            document.getElementById('noResults').classList.add('hidden');
+        }
+        
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            // App is ready
+        });
+    </script>
+</body>
+</html>
