@@ -1,6 +1,5 @@
-import io
 import os
-import gdown
+import requests
 import numpy as np
 from PIL import Image
 from flask import Flask, request, jsonify
@@ -11,26 +10,26 @@ from tensorflow.keras.models import load_model
 app = Flask(__name__)
 CORS(app)
 
-# Link Google Drive langsung (uc?id=...)
-MODEL_URL = 'https://drive.google.com/uc?id=1RIcD9w5gCLboQ6v7OwnzQRCOtjd3UmId'
+DROPBOX_URL = "https://www.dropbox.com/scl/fi/i9vckqfq5fz3twoxhdr3z/dowload.h5?rlkey=8dtnvaxx2330ouuuykxffzv8d&dl=1"
 CLASS_NAMES = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
 
 model = None
 
-# Lambda: grayscale to RGB (untuk layer Lambda di model)
 @tf.keras.utils.register_keras_serializable(package='Custom')
 def grayscale_to_rgb(x):
     return tf.repeat(x, 3, axis=-1)
 
 def download_and_load_model():
     global model
-    print("📥 Downloading model from Google Drive (in-memory)...")
     output = 'model.h5'
-    # Download file .h5
-    gdown.download(MODEL_URL, output, quiet=False)
-    # Debug ukuran file (penting! pastikan bukan file HTML/error)
-    print("[INFO] Model file size:", os.path.getsize(output), "bytes")
-    # Load model dengan custom Lambda
+    if not os.path.exists(output):  # biar gak download ulang tiap restart
+        print("📥 Downloading model from Dropbox ...")
+        r = requests.get(DROPBOX_URL, stream=True)
+        r.raise_for_status()
+        with open(output, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print("[INFO] Model file size:", os.path.getsize(output), "bytes")
     model = load_model(
         output,
         custom_objects={'grayscale_to_rgb': grayscale_to_rgb},
@@ -39,11 +38,11 @@ def download_and_load_model():
     print("✅ Model loaded successfully from file:", output)
 
 def preprocess_image(image_file, target_size=(48, 48)):
-    image = Image.open(image_file).convert('L')  # Grayscale
+    image = Image.open(image_file).convert('L')
     image = image.resize(target_size)
     image = np.asarray(image).astype('float32') / 255.0
-    image = np.expand_dims(image, axis=-1)  # (H, W, 1)
-    image = np.expand_dims(image, axis=0)   # (1, H, W, 1)
+    image = np.expand_dims(image, axis=-1)
+    image = np.expand_dims(image, axis=0)
     return image
 
 @app.route('/predict', methods=['POST'])
@@ -62,7 +61,6 @@ def predict():
         predicted_index = int(np.argmax(predictions))
         confidence = float(predictions[predicted_index]) * 100
 
-        # Top 3 predictions
         top3_indices = np.argsort(predictions)[-3:][::-1]
         top3 = [{
             'label': CLASS_NAMES[i],
@@ -87,6 +85,6 @@ def health_check():
     })
 
 if __name__ == '__main__':
-    download_and_load_model()  # Load model pada saat start
+    download_and_load_model()
     from waitress import serve
     serve(app, host='0.0.0.0', port=5000)
